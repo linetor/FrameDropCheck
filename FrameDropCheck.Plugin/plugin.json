@@ -4,6 +4,6 @@
     "Description": "Detects frame drops and re-encodes videos.",
     "TargetAbi": "10.11.0.0",
     "Version": "1.0.0.0",
-    "Owner": "linetor",
+    "Owner": "YourGitHubUsername",
     "ConfigurationPage": "/Plugins/FrameDropCheck/ConfigPage"
 }

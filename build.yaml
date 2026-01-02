@@ -9,7 +9,7 @@ description: >
   This is a longer description that can span more than one
   line and include details about your plugin.
 category: "General"
-owner: "linetor"
+owner: "YourGitHubUsername"
 artifacts:
   - "FrameDropCheck.Plugin.dll"
 changelog: >

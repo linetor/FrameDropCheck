@@ -5,3 +5,4 @@ obj/
 .vscode/
 FrameDropCheck.Plugin/.env
 artifacts
+OPEN_SOURCE_PREPARATION.md

@@ -1,0 +1,25 @@
+root = true
+
+# All C# files
+[*.cs]
+
+# SA1115, SA1111, SA1137: Parameter formatting rules - too strict for multi-mapping Dapper calls
+dotnet_diagnostic.SA1115.severity = silent
+dotnet_diagnostic.SA1111.severity = silent
+dotnet_diagnostic.SA1137.severity = silent
+
+# SA1513: Closing brace blank line rule - can be verbose for lambdas
+dotnet_diagnostic.SA1513.severity = silent
+
+# SA1506: Documentation headers blank line - minor style
+dotnet_diagnostic.SA1506.severity = silent
+
+# CA2007: ConfigureAwait guidance - library policy to be decided per team
+dotnet_diagnostic.CA2007.severity = silent
+
+# Additional relaxations to avoid StyleCop noise for early development of internal API wrappers
+dotnet_diagnostic.SA1210.severity = silent
+dotnet_diagnostic.SA1402.severity = silent
+dotnet_diagnostic.SA1611.severity = silent
+dotnet_diagnostic.SA1615.severity = silent
+dotnet_diagnostic.SA1119.severity = silent

@@ -3,32 +3,345 @@
     <head>
         <meta charset="utf-8" />
         <title>FrameDropCheck</title>
+        <style>
+            #RunProgressLog {
+                border: 1px solid #ccc;
+                background-color: #f5f5f5;
+                border-radius: 4px;
+                padding: 10px;
+                height: 300px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 12px;
+                margin: 10px 0;
+                display: none;
+            }
+            .log-entry {
+                padding: 2px 0;
+                margin: 2px 0;
+            }
+            .log-info {
+                color: #333;
+            }
+            .log-warning {
+                color: #ff9800;
+                font-weight: bold;
+            }
+            .log-error {
+                color: #d32f2f;
+                font-weight: bold;
+            }
+            #RunProgressStatus {
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 4px;
+                display: none;
+                font-weight: bold;
+            }
+            #RunProgressStatus.running {
+                background-color: #fff3e0;
+                color: #f57c00;
+            }
+            #RunProgressStatus.completed {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+            }
+            #RunProgressStatus.failed {
+                background-color: #ffebee;
+                color: #c62828;
+            }
+        </style>
     </head>
     <body>
-        <div id="FrameDropCheckConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div
+            id="FrameDropCheckConfigPage"
+            data-role="page"
+            class="page type-interior pluginConfigurationPage"
+            data-require="emby-input,emby-button,emby-select,emby-checkbox"
+        >
             <div data-role="content">
                 <div class="content-primary">
                     <form id="FrameDropCheckConfigForm">
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="FfmpegPath">FFmpeg 경로</label>
-                            <input id="FfmpegPath" name="FfmpegPath" type="text" is="emby-input" />
-                            <div class="fieldDescription">FFmpeg 실행 파일의 전체 경로를 입력하세요. (예: /usr/bin/ffmpeg 또는 ffmpeg.exe)</div>
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="FfmpegPath"
+                                >FFmpeg 경로</label
+                            >
+                            <input
+                                id="FfmpegPath"
+                                name="FfmpegPath"
+                                type="text"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                FFmpeg 실행 파일의 전체 경로를 입력하세요. (예:
+                                /usr/bin/ffmpeg 또는 ffmpeg.exe)
+                            </div>
                         </div>
 
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MediaScanTime">미디어 스캔 시간 (HH:mm)</label>
-                            <input id="MediaScanTime" name="MediaScanTime" type="time" is="emby-input" />
-                            <div class="fieldDescription">프레임 드롭 검사를 시작할 시간을 입력하세요. (예: 새벽 2시 → 02:00)</div>
+                            <label class="inputLabel inputLabelUnfocused" for="EncoderType">Encoder Type</label>
+                            <select is="emby-select" id="EncoderType" name="EncoderType" class="emby-select-withcolor emby-select">
+                                <option value="CPU">CPU (Software)</option>
+                                <option value="NVENC">NVIDIA NVENC</option>
+                                <option value="VAAPI">VAAPI (Intel/AMD)</option>
+                                <option value="QSV">Intel QuickSync (QSV)</option>
+                                <option value="V4L2">V4L2 (Raspberry Pi/ARM)</option>
+                            </select>
+                            <div class="fieldDescription">Select the hardware acceleration method to use for re-encoding.</div>
                         </div>
 
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="BackupPath">프레임 드롭 미디어 백업 경로</label>
-                            <input id="BackupPath" name="BackupPath" type="text" is="emby-input" />
-                            <div class="fieldDescription">프레임 드롭이 발견된 미디어 파일을 백업할 경로를 입력하세요. (예: /media/backup/framedrop)</div>
+                            <label class="inputLabel inputLabelUnfocused" for="HardwareDevicePath">Hardware Device Path</label>
+                            <input id="HardwareDevicePath" name="HardwareDevicePath" type="text" is="emby-input" />
+                            <div class="fieldDescription">Device path for hardware acceleration (e.g. /dev/dri/renderD128 for VAAPI). Leave empty for default or if not applicable.</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="MaintenanceStartTime"
+                                >최적화 시작 시간 (HH:mm)</label
+                            >
+                            <input
+                                id="MaintenanceStartTime"
+                                name="MaintenanceStartTime"
+                                type="time"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                점검 및 재인코딩을 시작할 시간을 입력하세요.
+                                (예: 새벽 2시 → 02:00)
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="MaintenanceEndTime"
+                                >최적화 종료 시간 (HH:mm)</label
+                            >
+                            <input
+                                id="MaintenanceEndTime"
+                                name="MaintenanceEndTime"
+                                type="time"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                점검 및 재인코딩을 강제로 종료할 시간을 입력하세요.
+                                (예: 아침 6시 → 06:00)
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="DropThreshold"
+                                >드롭 임계값 (%)</label
+                            >
+                            <input
+                                id="DropThreshold"
+                                name="DropThreshold"
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="100"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                자동 인코딩을 실행할 프레임 드롭 비율을 입력하세요. (기본값: 5.0)
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="TargetCrf"
+                                >대상 품질 (CRF)</label
+                            >
+                            <input
+                                id="TargetCrf"
+                                name="TargetCrf"
+                                type="number"
+                                min="0"
+                                max="51"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                재인코딩 시 사용할 비디오 품질을 입력하세요 (0-51).
+                                낮을수록 고화질/대용량, 23이 표준입니다.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="TargetBitrate"
+                                >대상 비트레이트 (Mbps)</label
+                            >
+                            <input
+                                id="TargetBitrate"
+                                name="TargetBitrate"
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                인코딩 시 사용할 비디오 비트레이트를 입력하세요 (0이면 CRF 사용). 예: 4M 설정 시 4.0 입력.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="BackupPath"
+                                >프레임 드롭 미디어 백업 경로</label
+                            >
+                            <input
+                                id="BackupPath"
+                                name="BackupPath"
+                                type="text"
+                                is="emby-input"
+                            />
+                            <div class="fieldDescription">
+                                프레임 드롭이 발견된 미디어 파일을 백업할 경로를
+                                입력하세요. (예: /media/backup/framedrop)
+                            </div>
                         </div>
                         <div>
-                            <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <button
+                                is="emby-button"
+                                type="submit"
+                                class="raised button-submit block emby-button"
+                            >
                                 <span>Save</span>
+                            </button>
+                        </div>
+                        <hr />
+                        <h3>지금 실행</h3>
+                         <div class="inputContainer">
+                            <label
+                                class="inputLabel inputLabelUnfocused"
+                                for="RunNowMediaId"
+                                >MediaId (필수)</label
+                            >
+                            <input
+                                id="RunNowMediaId"
+                                name="RunNowMediaId"
+                                type="text"
+                                is="emby-input"
+                                autocomplete="off"
+                            />
+                            <div class="fieldDescription">
+                                검사할 미디어의 Jellyfin MediaId를 입력하세요.
+                            </div>
+                        </div>
+                        <div class="content-block">
+                    <div class="sectionTitle">Media Status Overview</div>
+                    <div id="SummaryStatsContainer" style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px; border-left: 5px solid #00a4dc;">
+                        <div style="display: flex; justify-content: space-around; text-align: center;">
+                            <div>
+                                <div style="font-size: 0.9em; color: #666;">전체 미디어</div>
+                                <div id="StatTotal" style="font-size: 1.5em; font-weight: bold; color: #333;">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: #666;">분석 완료</div>
+                                <div id="StatScanned" style="font-size: 1.5em; font-weight: bold; color: #008000;">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.9em; color: #666;">분석 대기</div>
+                                <div id="StatPending" style="font-size: 1.5em; font-weight: bold; color: #ff8c00;">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap: 10px; margin-bottom: 20px;">
+                            <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                                <h4>1. 로그 분석</h4>
+                                <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">기존 재생 기록(로그)을 분석하여 통계를 가져옵니다. 서버에 부하를 주지 않습니다.</p>
+                                <button
+                                    id="RunNowButton"
+                                    is="emby-button"
+                                    type="button"
+                                    class="raised block emby-button"
+                                    style="width: 100%;"
+                                >
+                                    <span>로그 분석 시작</span>
+                                </button>
+                            </div>
+                            <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                                <h4>2. 성능 테스트</h4>
+                                <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">즉시 30초간 가상 재생 부하를 발생시켜 현재 스트리밍 성능을 측정합니다.</p>
+                                <button
+                                    id="ProbeNowButton"
+                                    is="emby-button"
+                                    type="button"
+                                    class="raised block emby-button"
+                                    style="width: 100%; background-color: #0078d4; color: white;"
+                                >
+                                    <span>성능 테스트 시작</span>
+                                </button>
+                            </div>
+                            <div style="flex: 1; min-width: 250px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                                <h4>3. 최적화 진단</h4>
+                                <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">드롭률과 클라이언트 로그를 종합하여 재인코딩이 필요한지 판단합니다.</p>
+                                <button
+                                    id="AnalyzeNowButton"
+                                    is="emby-button"
+                                    type="button"
+                                    class="raised block emby-button"
+                                    style="width: 100%; background-color: #2e7d32; color: white;"
+                                >
+                                    <span>분석 실행</span>
+                                </button>
+                                <div id="AnalyzeResult" style="margin-top: 10px; font-weight: bold; font-size: 0.9em;"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button
+                                id="CancelButton"
+                                is="emby-button"
+                                type="button"
+                                class="raised block emby-button"
+                                style="width: 100%;"
+                                disabled
+                            >
+                                <span>작업 취소</span>
+                            </button>
+                        </div>
+                        <div id="RunProgressStatus" class="running"></div>
+                        <div id="RunProgressLog"></div>
+
+                        <hr />
+                        <h3>미디어 상태 개요</h3>
+                        <div id="MediaHealthTableContainer" style="margin-top: 20px;">
+                            <table class="tblMediaHealth" style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="text-align: left; border-bottom: 2px solid #ccc;">
+                                        <th style="padding: 10px;">이름</th>
+                                        <th style="padding: 10px;">서버 드롭률 (Probe)</th>
+                                        <th style="padding: 10px;">클라이언트 드롭률 (재생수)</th>
+                                        <th style="padding: 10px;">재생 속도</th>
+                                        <th style="padding: 10px;">상태</th>
+                                        <th style="padding: 10px;">배율 (압축비)</th>
+                                        <th style="padding: 10px;">최근 스캔</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="MediaHealthBody">
+                                    <tr>
+                                        <td colspan="6" style="padding: 20px; text-align: center;">데이터를 불러오는 중...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button
+                                id="RefreshHealthButton"
+                                is="emby-button"
+                                type="button"
+                                class="raised block emby-button"
+                                style="margin-top: 10px;"
+                            >
+                                <span>새로고침</span>
                             </button>
                         </div>
                     </form>
@@ -37,32 +350,362 @@
             <script type="text/javascript">
                 var FrameDropCheckConfig = {
                     pluginUniqueId: "d3075c1e-6e7c-4a70-b989-170aa2f4aa3e",
+                    currentEventSource: null,
+                    isRunning: false,
                 };
+
+                async function loadStats() {
+                    try {
+                        const url = ApiClient.getUrl("Plugins/FrameDropCheck/SummaryStats?t=" + new Date().getTime());
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                        }
+                        const data = await response.json();
+                        document.querySelector("#StatTotal").innerText = data.total;
+                        document.querySelector("#StatScanned").innerText = data.scanned;
+                        document.querySelector("#StatPending").innerText = data.pending;
+                    } catch (err) {
+                        console.error("Failed to load statistics", err);
+                    }
+                }
+
+                async function refreshMediaHealth() {
+                    loadStats();
+
+                    var btn = document.querySelector("#RefreshHealthButton");
+                    if (btn) btn.disabled = true;
+
+                    try {
+                        var url = ApiClient.getUrl("Plugins/FrameDropCheck/MediaHealth?t=" + new Date().getTime());
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                        }
+                        const data = await response.json();
+
+                        if (btn) btn.disabled = false;
+                        var body = document.querySelector("#MediaHealthBody");
+                        body.innerHTML = "";
+
+                        if (!data || data.length === 0) {
+                            body.innerHTML = "<tr><td colspan='7' style='padding: 20px; text-align: center;'>데이터가 없습니다.</td></tr>";
+                            return;
+                        }
+
+                        data.forEach(function(item) {
+                            var row = document.createElement("tr");
+                            row.style.borderBottom = "1px solid #eee";
+
+                            var pRate = item.probeDropRate !== undefined ? item.probeDropRate : item.ProbeDropRate;
+                            var probeDropRate = pRate !== null && pRate !== undefined
+                                ? pRate.toFixed(2) + "%"
+                                : "-";
+
+                            var cRate = item.clientDropRate !== undefined ? item.clientDropRate : item.ClientDropRate;
+                            var pCount = item.clientPlayCount !== undefined ? item.clientPlayCount : item.ClientPlayCount;
+
+                            var clientRate = "-";
+                            if (cRate !== null && cRate !== undefined) {
+                                clientRate = cRate.toFixed(2) + "% (" + (pCount || 0) + "회)";
+                            } else if (pCount > 0) {
+                                clientRate = "0.00% (" + pCount + "회)";
+                            }
+
+                            var name = item.name || item.Name || "Unknown";
+                            var lScanned = item.lastScanned || item.LastScanned;
+                            var lastScanned = lScanned ? new Date(lScanned).toLocaleString() : "미실시";
+                            var status = item.optimizationStatus || item.OptimizationStatus || "Pending";
+                            var pSpeed = item.probeSpeed !== undefined ? item.probeSpeed : item.ProbeSpeed;
+                            var speed = pSpeed ? pSpeed.toFixed(2) + "x" : "-";
+                            var cRatio = item.compressionRatio !== undefined ? item.compressionRatio : item.CompressionRatio;
+                            var ratio = cRatio ? "x" + cRatio.toFixed(2) : "-";
+
+                            var statusColor = "#333";
+                            if (status === "Optimized") statusColor = "#2e7d32";
+                            else if (status === "Failed") statusColor = "#d32f2f";
+
+                            row.innerHTML =
+                                "<td style='padding: 10px;'>" + name + "</td>" +
+                                "<td style='padding: 10px;'>" + probeDropRate + "</td>" +
+                                "<td style='padding: 10px;'>" + clientRate + "</td>" +
+                                "<td style='padding: 10px;'>" + speed + "</td>" +
+                                "<td style='padding: 10px; color: " + statusColor + "; font-weight: bold;'>" + status + "</td>" +
+                                "<td style='padding: 10px;'>" + ratio + "</td>" +
+                                "<td style='padding: 10px;'>" + lastScanned + "</td>";
+                            body.appendChild(row);
+                        });
+                    } catch (err) {
+                        if (btn) btn.disabled = false;
+                        console.error("Error fetching media health", err);
+                        var msg = "데이터를 불러오는 중 오류가 발생했습니다.";
+                        if (err && err.message) msg += " " + err.message;
+                        else if (err) msg += " " + err;
+
+                        var body = document.querySelector("#MediaHealthBody");
+                        body.innerHTML = "<tr><td colspan='7' style='padding: 20px; text-align: center; color: red;'>" + msg + "</td></tr>";
+                    }
+                }
+
+                function addLogEntry(level, message) {
+                    var logDiv = document.querySelector("#RunProgressLog");
+                    var entry = document.createElement("div");
+                    entry.className = "log-entry log-" + (level || "info").toLowerCase();
+                    entry.textContent = "[" + new Date().toLocaleTimeString() + "] [" + level + "] " + message;
+                    logDiv.appendChild(entry);
+                    logDiv.scrollTop = logDiv.scrollHeight;
+                }
+
+                function updateStatus(data) {
+                    var statusDiv = document.querySelector("#RunProgressStatus");
+                    var statusClass = "running";
+                    var statusText = "처리 중...";
+
+                    if (data.status === "completed") {
+                        statusClass = "completed";
+                        var details = "";
+                        if (data.totalFrames > 0) {
+                            details = " (" + data.totalFrames + " 프레임 중 " + data.droppedFrames + "개 드롭)";
+                        } else if (data.droppedFrames > 0) {
+                            details = " (" + data.droppedFrames + " 프레임 드롭 감지)";
+                        }
+
+                        var speedInfo = data.speedFactor ? " [평균 속도: " + data.speedFactor.toFixed(2) + "x]" : "";
+                        statusText = "✓ 정밀 진단 완료!" + details + speedInfo;
+
+                        FrameDropCheckConfig.isRunning = false;
+                        document.querySelector("#RunNowButton").disabled = false;
+                        document.querySelector("#ProbeNowButton").disabled = false;
+                        document.querySelector("#CancelButton").disabled = true;
+
+                        if (FrameDropCheckConfig.currentEventSource) {
+                            FrameDropCheckConfig.currentEventSource.close();
+                            FrameDropCheckConfig.currentEventSource = null;
+                        }
+                        refreshMediaHealth();
+                    } else if (data.status === "failed" || data.status === "cancelled") {
+                        statusClass = "failed";
+                        statusText = "✗ 작업 실패/취소됨: " + data.status;
+                        FrameDropCheckConfig.isRunning = false;
+                        document.querySelector("#RunNowButton").disabled = false;
+                        document.querySelector("#ProbeNowButton").disabled = false;
+                        document.querySelector("#CancelButton").disabled = true;
+
+                        if (FrameDropCheckConfig.currentEventSource) {
+                            FrameDropCheckConfig.currentEventSource.close();
+                            FrameDropCheckConfig.currentEventSource = null;
+                        }
+                    } else {
+                        // Ongoing progress
+                        var speedInfo = data.speedFactor ? " [속도: " + data.speedFactor.toFixed(2) + "x]" : "";
+                        statusText = "분석 진행 중..." + speedInfo;
+                    }
+
+                    statusDiv.className = statusClass;
+                    statusDiv.textContent = statusText;
+                }
+
+                function startStreaming(mediaId) {
+                    if (FrameDropCheckConfig.currentEventSource) {
+                        FrameDropCheckConfig.currentEventSource.close();
+                    }
+
+                    var sseUrl = ApiClient.getUrl("Plugins/FrameDropCheck/Stream/" + mediaId);
+                    var eventSource = new EventSource(sseUrl);
+                    FrameDropCheckConfig.currentEventSource = eventSource;
+
+                    eventSource.onmessage = function (event) {
+                        try {
+                            var data = JSON.parse(event.data);
+                            if (data.type === "status") {
+                                updateStatus(data);
+                            } else {
+                                addLogEntry(data.level || "Info", data.message || "");
+                            }
+                        } catch (e) {
+                            console.error("error parsing event data", e);
+                        }
+                    };
+
+                    eventSource.onerror = function (event) {
+                        if (FrameDropCheckConfig.isRunning) {
+                            console.warn("SSE Connection lost, retrying...", event);
+                            // Only add warning if it persists or after multiple failures if needed
+                            // For now, just logging to console to avoid UI noise if it's a momentary blip
+                        }
+                    };
+                }
 
                 document.querySelector("#FrameDropCheckConfigPage").addEventListener("pageshow", function () {
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(FrameDropCheckConfig.pluginUniqueId).then(function (config) {
                         document.querySelector("#FfmpegPath").value = config.FfmpegPath || "";
-                        document.querySelector("#MediaScanTime").value = config.MediaScanTime || "";
+                        document.querySelector("#MaintenanceStartTime").value = config.MaintenanceStartTime || "";
+                        document.querySelector("#MaintenanceEndTime").value = config.MaintenanceEndTime || "";
+                        document.querySelector("#DropThreshold").value = config.DropThreshold || 5.0;
+                        document.querySelector("#TargetCrf").value = config.TargetCrf || 23;
+                        document.querySelector("#TargetBitrate").value = config.TargetBitrate || 0;
                         document.querySelector("#BackupPath").value = config.BackupPath || "";
-
+                        document.querySelector("#EncoderType").value = config.EncoderType || "CPU";
+                        document.querySelector("#HardwareDevicePath").value = config.HardwareDevicePath || "";
                         Dashboard.hideLoadingMsg();
+                        refreshMediaHealth();
                     });
                 });
 
                 document.querySelector("#FrameDropCheckConfigForm").addEventListener("submit", function (e) {
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(FrameDropCheckConfig.pluginUniqueId).then(function (config) {
-                        config.FfmpegPath = document.querySelector("#FfmpegPath").value;
-                        config.MediaScanTime = document.querySelector("#MediaScanTime").value;
+                        config.FfmpegPath = document.querySelector("#FfmpegPath").value.trim();
+                        config.MaintenanceStartTime = document.querySelector("#MaintenanceStartTime").value;
+                        config.MaintenanceEndTime = document.querySelector("#MaintenanceEndTime").value;
+                        config.DropThreshold = parseFloat(document.querySelector("#DropThreshold").value);
+                        config.TargetCrf = parseInt(document.querySelector("#TargetCrf").value, 10);
+                        config.TargetBitrate = parseFloat(document.querySelector("#TargetBitrate").value);
                         config.BackupPath = document.querySelector("#BackupPath").value;
+                        config.EncoderType = document.querySelector("#EncoderType").value;
+                        config.HardwareDevicePath = document.querySelector("#HardwareDevicePath").value;
                         ApiClient.updatePluginConfiguration(FrameDropCheckConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
-
                     e.preventDefault();
                     return false;
+                });
+
+                document.querySelector("#RefreshHealthButton").addEventListener("click", function() {
+                    refreshMediaHealth();
+                });
+
+                function runTask(endpoint, logPrefix, statusMsg) {
+                    if (FrameDropCheckConfig.isRunning) return;
+
+                    var mediaId = document.querySelector("#RunNowMediaId").value.trim();
+                    if (!mediaId || mediaId.length === 0) {
+                        Dashboard.showMessage("MediaId를 입력하세요.", "error");
+                        return;
+                    }
+                    addLogEntry("Info", logPrefix + " 요청 미디어 ID: [" + mediaId + "]");
+
+                    FrameDropCheckConfig.isRunning = true;
+                    document.querySelector("#RunProgressLog").style.display = "block";
+                    document.querySelector("#RunProgressStatus").style.display = "block";
+                    document.querySelector("#RunProgressLog").innerHTML = "";
+                    document.querySelector("#RunProgressStatus").textContent = statusMsg;
+                    document.querySelector("#RunProgressStatus").className = "running";
+                    document.querySelector("#RunNowButton").disabled = true;
+                    document.querySelector("#ProbeNowButton").disabled = true;
+                    document.querySelector("#CancelButton").disabled = false;
+
+                    var url = ApiClient.getUrl("Plugins/FrameDropCheck/" + endpoint);
+                    ApiClient.ajax({
+                        type: "POST",
+                        url: url,
+                        data: JSON.stringify({ mediaId: mediaId }),
+                        contentType: "application/json",
+                        dataType: "json"
+                    }).then(function(resp) {
+                        if (resp && resp.success) {
+                            addLogEntry("Info", logPrefix + " 작업이 시작되었습니다.");
+                            startStreaming(mediaId);
+                        } else {
+                            throw new Error(resp.message || "알 수 없는 오류");
+                        }
+                    }).catch(function(err) {
+                        addLogEntry("Error", logPrefix + " 시작 실패: " + err);
+                        FrameDropCheckConfig.isRunning = false;
+                        document.querySelector("#RunNowButton").disabled = false;
+                        document.querySelector("#ProbeNowButton").disabled = false;
+                        document.querySelector("#CancelButton").disabled = true;
+                    });
+                }
+
+                document.querySelector("#RunNowButton").addEventListener("click", function (e) {
+                    runTask("RunNow", "로그 분석", "로그 분석 중...");
+                });
+
+                document.querySelector("#ProbeNowButton").addEventListener("click", function (e) {
+                    runTask("ProbeNow", "성능 테스트", "성능 테스트 진행 중...");
+                });
+
+                document.querySelector("#CancelButton").addEventListener("click", function (e) {
+                    var mediaId = document.querySelector("#RunNowMediaId").value;
+                    if (!mediaId) return;
+
+                    var url = ApiClient.getUrl("Plugins/FrameDropCheck/Cancel");
+                    ApiClient.ajax({
+                        type: "POST",
+                        url: url,
+                        data: JSON.stringify({ mediaId: mediaId }),
+                        contentType: "application/json"
+                    }).then(function() {
+                        addLogEntry("Info", "취소 요청을 보냈습니다.");
+                        document.querySelector("#CancelButton").disabled = true;
+                    }).catch(function(err) {
+                        addLogEntry("Error", "취소 실패: " + err);
+                    });
+                });
+
+                document.querySelector("#AnalyzeNowButton").addEventListener("click", function (e) {
+                    var mediaId = document.querySelector("#RunNowMediaId").value.trim();
+                    if (!mediaId) {
+                         Dashboard.showMessage("MediaId를 입력하세요.", "error");
+                         return;
+                    }
+
+                    var resultDiv = document.querySelector("#AnalyzeResult");
+                    resultDiv.innerHTML = "분석 중... (잠시만 기다려주세요)";
+                    resultDiv.style.color = "#666";
+
+                    // Show timeout warning if it takes too long
+                    var loadingTimer = setTimeout(function() {
+                        if (resultDiv.innerHTML.indexOf("분석 중") !== -1) {
+                            resultDiv.innerHTML = "분석 중... (시스템 초기화 또는 로그 스캔 중입니다. 최대 1분 소요될 수 있습니다)";
+                        }
+                    }, 5000);
+
+                    var url = ApiClient.getUrl("Plugins/FrameDropCheck/Optimization/" + mediaId);
+                    ApiClient.getJSON(url)
+                    .then(function(data) {
+                         clearTimeout(loadingTimer);
+                         // Handle both integer and string enum values (case-insensitive) for robustness
+                         var action = (data.action !== undefined && data.action !== null) ? data.action.toString().toLowerCase() : "";
+                         if (action === "0" || action === "none") {
+                             resultDiv.innerHTML = "✅ 분석 결과: <strong>정상 (Healthy)</strong><br/><span style='font-size:0.8em'>" + data.reason + "</span>";
+                             resultDiv.style.color = "green";
+                         } else if (action === "1" || action === "reencode") {
+                             resultDiv.innerHTML = "⚠️ 분석 결과: <strong>재인코딩 권장</strong><br/><span style='font-size:0.8em'>" + data.reason + "</span>";
+                             resultDiv.style.color = "orange";
+                         } else if (action === "2" || action === "replace") {
+                             resultDiv.innerHTML = "❌ 분석 결과: <strong>교체 권장</strong><br/><span style='font-size:0.8em'>" + data.reason + "</span>";
+                             resultDiv.style.color = "red";
+                         } else {
+                             resultDiv.innerHTML = "결과: " + data.action + " - " + data.reason;
+                         }
+                    })
+                    .catch(function(err) {
+                         clearTimeout(loadingTimer);
+                         var msg = "알 수 없는 오류";
+                         if (err instanceof Response) {
+                             err.text().then(function(text) {
+                                 try {
+                                     var json = JSON.parse(text);
+                                     msg = json.message || text;
+                                 } catch(e) {
+                                     msg = text || err.statusText;
+                                 }
+                                 resultDiv.innerHTML = "오류 발생: " + msg;
+                             }).catch(function() {
+                                 resultDiv.innerHTML = "오류 발생: " + err.status + " " + err.statusText;
+                             });
+                         } else {
+                             msg = err.message || err;
+                             resultDiv.innerHTML = "오류 발생: " + msg;
+                         }
+                         resultDiv.style.color = "red";
+                    });
                 });
             </script>
         </div>
